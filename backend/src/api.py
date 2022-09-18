@@ -119,8 +119,8 @@ def create_app(test_config=None):
     
     @app.route('/drinks/<int:drink_id>/delete', methods=['DELETE'])
     # permission required to delete a drink
-    # @requires_auth('delete:drinks')
-    def delete_drink(drink_id):
+    @requires_auth('delete:drinks')
+    def delete_drink(drink_id, jwt):
         drink = Drink.query.filter(Drink.id == drink_id).one_or_none()
         if drink is None:
             abort(404)
@@ -138,7 +138,6 @@ def create_app(test_config=None):
     '''
     Example error handling for unprocessable entity
     '''
-
 
     @app.errorhandler(422)
     def unprocessable(error):
@@ -167,5 +166,13 @@ def create_app(test_config=None):
             "error": 400,
             "message": "bad request"
         }), 400
+    
+    # implement AuthError
+    @app.errorhandler(AuthError)
+    def process_AuthError(error):
+        response = jsonify(error.error)
+        response.status_code = error.status_code
+
+        return response
 
     return app
