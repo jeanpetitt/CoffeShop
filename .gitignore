@@ -3,6 +3,8 @@ myvenv
 .vscode/
 __pycache__/
 test.db
+database.db-journal
+
 
 # OS generated files #
 ######################

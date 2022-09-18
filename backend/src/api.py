@@ -74,26 +74,21 @@ def create_app(test_config=None):
     def post_drink():
         body = request.get_json()
         new_title = body.get('title', None)
-        new_recipe = body.get('recipe', None)
+        new_recipe = json.dumps(body['recipe'])
+        # new_recipe = body.get('recipe')
         
         try:
+            if 'title' and 'recipe' not in body:
+                abort(422)
+            print('ma famille "bonjour": "[{}]" ')
             
-            # rendre l'envoi des donnees au format json obligatoire
-                # comme avec un formulaire. tout simplement on ne peut pas
-                # envoyer les donnees si au lieu de {'title': 'my title'} on met
-                # {'ques':'ma question'} ou {'question': ''}
-            if ((new_title == None or new_title == '') or 
-                (new_recipe == None or new_recipe== '')):
-                    abort(422)
-            # if not isinstance(new_recipe, json):
-            #     print('errur format json non respecter')
-                
             drink = Drink(title=new_title, recipe=new_recipe)
             drink.insert()
+            
             return jsonify({
                 'success': True,
                 'created': drink.id,
-                'drink': drink.short(),
+                'total_drinks': len(Drink.query.all())
                 })
         except:
             abort(422)
