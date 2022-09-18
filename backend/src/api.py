@@ -1,5 +1,5 @@
-from crypt import methods
 import os
+import re
 from flask import Flask, request, jsonify, abort
 from sqlalchemy import exc
 import json
@@ -24,13 +24,6 @@ def create_app(test_config=None):
         )
         return response
     
-
-    '''
-    @TODO uncomment the following line to initialize the datbase
-    !! NOTE THIS WILL DROP ALL RECORDS AND START YOUR DB FROM SCRATCH
-    !! NOTE THIS MUST BE UNCOMMENTED ON FIRST RUN
-    !! Running this funciton will add one
-    '''
     # db_drop_and_create_all()
 
     # ROUTES
@@ -49,7 +42,7 @@ def create_app(test_config=None):
             'sucess': True,
             'drinks': list_drink,
             'total_drink': len(drinks)
-        })
+        }), 200
 
     # get drink with more information
     @app.route('/drinks-detail')
@@ -63,7 +56,7 @@ def create_app(test_config=None):
                     'success': True,
                     'drinks': drinks,
                     'total_drinks': len(drinks)
-                })
+                }), 200
     
         except:
             abort(404)
@@ -80,46 +73,66 @@ def create_app(test_config=None):
         try:
             if 'title' and 'recipe' not in body:
                 abort(422)
-            print('ma famille "bonjour": "[{}]" ')
             
             drink = Drink(title=new_title, recipe=new_recipe)
             drink.insert()
             
             return jsonify({
                 'success': True,
-                'created': drink.id,
+                'drink': drink.long(),
                 'total_drinks': len(Drink.query.all())
-                })
+                }), 200
         except:
             abort(422)
-        
-        
 
 
-    '''
-    @TODO implement endpoint
-        PATCH /drinks/<id>
-            where <id> is the existing model id
-            it should respond with a 404 error if <id> is not found
-            it should update the corresponding row for <id>
-            it should require the 'patch:drinks' permission
-            it should contain the drink.long() data representation
-        returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the updated drink
-            or appropriate status code indicating reason for failure
-    '''
+    # update the drink with permission required
+    
+    @app.route('/drinks/<int:drink_id>', methods=['PATCH'])
+    # require permission for update the drink
+    @requires_auth('patch:drinks')
+    def update_drink(drink_id, jwt):
+        body = request.get_json()
+        drink = Drink.query.filter(Drink.id == drink_id).one_or_none()
+        if drink is None:
+            abort(404)
+        try:
+            if 'title' in body:
+                drink.title = body.get('title', None)
 
+            if 'recipe' in body:
+                drink.recipe = json.dumps(body['recipe'])
+            
+            drink.update()
+            drinks = [data.long() for data in drink ]
+            
+            return jsonify({
+                'success': True,
+                'drinks': drinks,
+                'total_drinks': len(Drink.query.all())
+            }), 200
+            
+        except:
+            abort(400)
 
-    '''
-    @TODO implement endpoint
-        DELETE /drinks/<id>
-            where <id> is the existing model id
-            it should respond with a 404 error if <id> is not found
-            it should delete the corresponding row for <id>
-            it should require the 'delete:drinks' permission
-        returns status code 200 and json {"success": True, "delete": id} where id is the id of the deleted record
-            or appropriate status code indicating reason for failure
-    '''
-
+    # delete drink with permission required
+    
+    @app.route('/drinks/<int:drink_id>/delete', methods=['DELETE'])
+    # permission required to delete a drink
+    # @requires_auth('delete:drinks')
+    def delete_drink(drink_id):
+        drink = Drink.query.filter(Drink.id == drink_id).one_or_none()
+        if drink is None:
+            abort(404)
+        try:
+            drink.delete()
+            return jsonify({
+                'success': True,
+                'delete': drink_id,
+                'total_drink': len(Drink.query.all())
+            })
+        except:
+            abort(422)
 
     # Error Handling
     '''
@@ -145,5 +158,14 @@ def create_app(test_config=None):
             "error": 404,
             "message": "ressource not found"
         }), 404
+        
+    # implement bad request
+    @app.errorhandler(400)
+    def badrequest(error):
+        return jsonify({
+            "success": False,
+            "error": 400,
+            "message": "bad request"
+        }), 400
 
     return app
