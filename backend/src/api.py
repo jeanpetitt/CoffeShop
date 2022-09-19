@@ -1,10 +1,8 @@
 import os
-import re
 from flask import Flask, request, jsonify, abort
 from sqlalchemy import exc
 import json
 from flask_cors import CORS
-
 from .database.models import db_drop_and_create_all, setup_db, Drink
 from .auth.auth import AuthError, requires_auth
 
@@ -91,7 +89,7 @@ def create_app(test_config=None):
     @app.route('/drinks/<int:drink_id>', methods=['PATCH'])
     # require permission for update the drink
     @requires_auth('patch:drinks')
-    def update_drink(drink_id, jwt):
+    def update_drink(jwt, drink_id):
         body = request.get_json()
         drink = Drink.query.filter(Drink.id == drink_id).one_or_none()
         if drink is None:
@@ -104,11 +102,11 @@ def create_app(test_config=None):
                 drink.recipe = json.dumps(body['recipe'])
             
             drink.update()
-            drinks = [data.long() for data in drink ]
+            
             
             return jsonify({
                 'success': True,
-                'drinks': drinks,
+                'drinks': drink.long(),
                 'total_drinks': len(Drink.query.all())
             }), 200
             
@@ -120,8 +118,9 @@ def create_app(test_config=None):
     @app.route('/drinks/<int:drink_id>/delete', methods=['DELETE'])
     # permission required to delete a drink
     @requires_auth('delete:drinks')
-    def delete_drink(drink_id, jwt):
+    def delete_drink(jwt, drink_id):
         drink = Drink.query.filter(Drink.id == drink_id).one_or_none()
+        print('drink_id ', drink_id)
         if drink is None:
             abort(404)
         try:
@@ -133,6 +132,7 @@ def create_app(test_config=None):
             })
         except:
             abort(422)
+            
 
     # Error Handling
     '''
